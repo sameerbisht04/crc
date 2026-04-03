@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // App runtime: use Supabase pooler URL (port 6543) with ?pgbouncer=true when using PgBouncer
+  url       = env("DATABASE_URL")
+  // Migrations: use direct DB URL (port 5432). For local dev, set DIRECT_URL = DATABASE_URL.
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  studentId    String
+  passwordHash String
+  name         String
+  role         Role
+  orders       Order[]
+  createdAt    DateTime @default(now())
+}
+
+model Partner {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  phone        String
+  passwordHash String
+  approved     Boolean  @default(false)
+  earnings     Int      @default(0)
+  orders       Order[]
+  createdAt    DateTime @default(now())
+}
+
+model Order {
+  id             String   @id @default(cuid())
+  type           OrderType
+  pickupLocation String
+  dropLocation   String
+  notes          String?
+  paymentMethod  PaymentMethod
+  status         OrderStatus @default(PENDING)
+  studentId      String
+  student        User       @relation(fields: [studentId], references: [id])
+  partnerId      String?
+  partner        Partner?   @relation(fields: [partnerId], references: [id])
+  amount         Int        @default(0)
+  createdAt      DateTime   @default(now())
+}
+
+enum Role {
+  STUDENT
+  PARTNER
+  ADMIN
+}
+
+enum OrderType {
+  FOOD
+  GROCERIES
+  PARCEL
+}
+
+enum PaymentMethod {
+  UPI
+  CARD
+  COD
+}
+
+enum OrderStatus {
+  PENDING
+  PICKED_UP
+  ON_THE_WAY
+  DELIVERED
+  CANCELLED
+}
+
+

@@ -1,0 +1,24 @@
+{
+  "name": "campus-delivery",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c cyan,magenta \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "build:static": "cd frontend && npm run build:static",
+    "serve": "cd frontend && npx serve out -l 3000",
+    "launch": "npm run build:static && npm run serve",
+    "start": "concurrently -n frontend,backend -c cyan,magenta \"npm run start:frontend\" \"npm run start:backend\"",
+    "start:frontend": "cd frontend && npm run start",
+    "start:backend": "cd backend && npm run start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "serve": "^14.2.4"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "files.associations": {
+    "frontend/out/**/*.html": "html",
+    "frontend\\out\\**\\*.html": "html",
+    "**/out/**/*.html": "html",
+    "**/out/index.html": "html",
+    "out/**/*.html": "html"
+  },
+  "files.watcherExclude": {
+    "**/frontend/out/**": true
+  }
+}

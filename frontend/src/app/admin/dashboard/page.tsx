@@ -1,0 +1,191 @@
+"use client";
+
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { useAuth } from "@/contexts/AuthContext";
+import { api, Order, Partner } from "@/lib/api";
+import { useEffect, useState } from "react";
+
+type Stats = { ordersToday: number; totalEarnings: number };
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pending",
+  PICKED_UP: "Picked up",
+  ON_THE_WAY: "On the way",
+  DELIVERED: "Delivered",
+  CANCELLED: "Cancelled",
+};
+
+export default function AdminDashboardPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [pendingPartners, setPendingPartners] = useState<Partner[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    if (!user || user.role !== "ADMIN") return;
+    try {
+      const [s, partners, ords] = await Promise.all([
+        api<Stats>("/admin/stats"),
+        api<Partner[]>("/admin/partners/pending"),
+        api<Order[]>("/admin/orders"),
+      ]);
+      setStats(s);
+      setPendingPartners(partners);
+      setOrders(ords);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.role !== "ADMIN") return;
+    fetchData();
+    const t = setInterval(fetchData, 10000);
+    return () => clearInterval(t);
+  }, [user?.id, user?.role]);
+
+  async function handleApprove(partnerId: string) {
+    setApprovingId(partnerId);
+    try {
+      await api(`/admin/partners/${partnerId}/approve`, { method: "POST" });
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve");
+    } finally {
+      setApprovingId(null);
+    }
+  }
+
+  if (authLoading) {
+    return (
+      <DashboardLayout>
+        <p className="text-slate-500">Loading…</p>
+      </DashboardLayout>
+    );
+  }
+
+  if (!user) {
+    return (
+      <DashboardLayout>
+        <div className="rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 p-6 text-center max-w-md mx-auto">
+          <h2 className="font-semibold mb-2">Admin</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+            Sign in with an admin account to manage partners and view analytics.
+          </p>
+          <a href="/login" className="text-sky-600 dark:text-sky-400 font-medium hover:underline">
+            Sign in
+          </a>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (user.role !== "ADMIN") {
+    return (
+      <DashboardLayout>
+        <p className="text-slate-500">This page is for admins. You are signed in as {user.role}.</p>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">Manage partners and view analytics</p>
+        </div>
+
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400 rounded-lg bg-red-50 dark:bg-red-900/20 p-2">
+            {error}
+          </p>
+        )}
+
+        {loading ? (
+          <p className="text-slate-500 text-sm">Loading…</p>
+        ) : (
+          <>
+            <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-6">
+                <p className="text-sm text-slate-500 dark:text-slate-400">Today&apos;s orders</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+                  {stats?.ordersToday ?? 0}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-6">
+                <p className="text-sm text-slate-500 dark:text-slate-400">Total platform earnings</p>
+                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                  ₹{stats?.totalEarnings ?? 0}
+                </p>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-6">
+              <h2 className="text-lg font-semibold mb-4">Pending partner approvals</h2>
+              {pendingPartners.length === 0 ? (
+                <p className="text-slate-500 text-sm">No pending approvals.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {pendingPartners.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-600 p-3"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{p.name}</p>
+                        <p className="text-slate-600 dark:text-slate-400 text-xs">{p.email} · {p.phone}</p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={approvingId === p.id}
+                        onClick={() => handleApprove(p.id)}
+                        className="rounded-lg bg-emerald-600 text-white text-sm font-medium py-1.5 px-3 hover:opacity-90 disabled:opacity-50"
+                      >
+                        {approvingId === p.id ? "Approving…" : "Approve"}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-6">
+              <h2 className="text-lg font-semibold mb-4">All orders</h2>
+              {orders.length === 0 ? (
+                <p className="text-slate-500 text-sm">No orders yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {orders.map((order) => (
+                    <li
+                      key={order.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-600 p-2 text-sm"
+                    >
+                      <div className="min-w-0 truncate">
+                        <span className="font-medium">{order.type}</span>
+                        {" · "}
+                        <span className="text-slate-600 dark:text-slate-400">
+                          {order.student?.name ?? order.studentId} → {order.partner?.name ?? "—"}
+                        </span>
+                        {" · "}
+                        <span className="text-slate-500">{STATUS_LABELS[order.status] ?? order.status}</span>
+                      </div>
+                      <span className="text-slate-500 shrink-0">₹{order.amount ?? 0}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+}
