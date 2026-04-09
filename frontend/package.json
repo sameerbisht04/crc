@@ -3,19 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "build:static": "cross-env STATIC_EXPORT=1 next build",
+    "dev": "npm run prisma:generate && next dev --turbopack",
+    "build": "npm run prisma:generate && next build",
+    "prisma:generate": "npx prisma generate --schema ../backend/prisma/schema.prisma",
+    "build:static": "cross-env STATIC_EXPORT=1 npm run prisma:generate && next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@prisma/client": "^5.20.0",
     "@supabase/supabase-js": "^2.49.1",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
     "next": "15.5.4",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "prisma": "^5.20.0",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/google.maps": "^3.58.1",
