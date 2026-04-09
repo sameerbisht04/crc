@@ -1,7 +1,7 @@
 import { ApiError, handleApiError } from "@/lib/server/apiError";
 import { requireApprovedPartner, requireAuth, requireRole } from "@/lib/server/auth";
 import { prisma } from "@/lib/server/prisma";
-import bcrypt from "bcryptjs";
+import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 import { z } from "zod";
