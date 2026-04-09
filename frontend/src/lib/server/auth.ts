@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
+import { ApiError } from "./apiError";
 import { prisma } from "./prisma";
 import { resolveUserFromSupabase } from "./supabaseUser";
-import { ApiError } from "./apiError";
 
 export type AuthUser = { id: string; role: "STUDENT" | "PARTNER" | "ADMIN" };
 
