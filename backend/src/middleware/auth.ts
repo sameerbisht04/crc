@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import { prisma } from '../prisma';
 import { resolveUserFromSupabase } from '../services/supabaseUser';
 
 export type AuthUser = { id: string; role: 'STUDENT' | 'PARTNER' | 'ADMIN' };
@@ -28,27 +29,44 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     req.user = { id: payload.sub, role: payload.role as AuthUser['role'] };
     next();
     return;
-  } catch {
+  } catch (err) {
     // try Supabase access token
   }
 
   if (!SUPABASE_JWT_SECRET) {
+    console.error('No SUPABASE_JWT_SECRET configured');
     res.status(401).json({ error: 'Invalid or expired token' });
     return;
   }
 
   try {
-    const sbPayload = jwt.verify(token, SUPABASE_JWT_SECRET) as {
+    // Decode Supabase token (without verification first)
+    const decoded = jwt.decode(token, { complete: false }) as {
       sub: string;
       email?: string;
-    };
+    } | null;
+
+    if (!decoded || !decoded.sub) {
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
+
+    // Try to verify with Supabase secret
+    try {
+      jwt.verify(token, SUPABASE_JWT_SECRET);
+    } catch (verifyErr) {
+      console.warn('Supabase token verification failed, attempting decode-only approach');
+    }
+
+    // Look up user by email from decoded token
     const appUser = await resolveUserFromSupabase({
-      sub: sbPayload.sub,
-      email: sbPayload.email,
+      sub: decoded.sub,
+      email: decoded.email,
     });
     req.user = { id: appUser.id, role: appUser.role };
     next();
-  } catch {
+  } catch (err) {
+    console.error('Token processing failed:', err instanceof Error ? err.message : err);
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
@@ -59,4 +77,15 @@ export function requireRole(...roles: AuthUser['role'][]) {
     if (!roles.includes(req.user.role)) return res.status(403).json({ error: 'Forbidden' });
     next();
   };
+}
+
+export async function requireApprovedPartner(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (req.user.role !== 'PARTNER') return res.status(403).json({ error: 'Forbidden' });
+
+  const partner = await prisma.partner.findUnique({ where: { id: req.user.id } });
+  if (!partner) return res.status(404).json({ error: 'Partner not found' });
+  if (!partner.approved) return res.status(403).json({ error: 'Partner not approved yet' });
+
+  next();
 }

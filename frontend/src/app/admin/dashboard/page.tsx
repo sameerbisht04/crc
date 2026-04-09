@@ -79,8 +79,8 @@ export default function AdminDashboardPage() {
           <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
             Sign in with an admin account to manage partners and view analytics.
           </p>
-          <a href="/login" className="text-sky-600 dark:text-sky-400 font-medium hover:underline">
-            Sign in
+          <a href="/admin/login" className="text-sky-600 dark:text-sky-400 font-medium hover:underline">
+            Admin sign in
           </a>
         </div>
       </DashboardLayout>
@@ -133,24 +133,56 @@ export default function AdminDashboardPage() {
               {pendingPartners.length === 0 ? (
                 <p className="text-slate-500 text-sm">No pending approvals.</p>
               ) : (
-                <ul className="space-y-3">
+                <ul className="space-y-4">
                   {pendingPartners.map((p) => (
                     <li
                       key={p.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-600 p-3"
+                      className="rounded-lg border border-slate-200 dark:border-slate-600 p-4 space-y-3"
                     >
-                      <div>
-                        <p className="font-medium text-sm">{p.name}</p>
-                        <p className="text-slate-600 dark:text-slate-400 text-xs">{p.email} · {p.phone}</p>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{p.name}</p>
+                          <p className="text-slate-600 dark:text-slate-400 text-xs">{p.email} · {p.phone}</p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={approvingId === p.id}
+                          onClick={() => handleApprove(p.id)}
+                          className="rounded-lg bg-emerald-600 text-white text-sm font-medium py-1.5 px-3 hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {approvingId === p.id ? "Approving…" : "Approve"}
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        disabled={approvingId === p.id}
-                        onClick={() => handleApprove(p.id)}
-                        className="rounded-lg bg-emerald-600 text-white text-sm font-medium py-1.5 px-3 hover:opacity-90 disabled:opacity-50"
-                      >
-                        {approvingId === p.id ? "Approving…" : "Approve"}
-                      </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-900/30 p-3 rounded-lg text-xs">
+                        {(p as any).usn && (
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400">USN</p>
+                            <p className="font-medium">{(p as any).usn}</p>
+                          </div>
+                        )}
+                        {(p as any).collegeYear && (
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400">College Year</p>
+                            <p className="font-medium">{(p as any).collegeYear}</p>
+                          </div>
+                        )}
+                        {(p as any).enrollmentNo && (
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400">Enrollment No</p>
+                            <p className="font-medium">{(p as any).enrollmentNo}</p>
+                          </div>
+                        )}
+                      </div>
+                      {(p as any).idCardUrl && (
+                        <div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">ID Card</p>
+                          <img
+                            src={(p as any).idCardUrl}
+                            alt="ID Card"
+                            className="max-w-xs max-h-48 rounded-lg border border-slate-200 dark:border-slate-600"
+                          />
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>

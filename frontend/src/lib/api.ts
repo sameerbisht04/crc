@@ -75,5 +75,9 @@ export type Partner = {
   phone: string;
   approved: boolean;
   earnings?: number;
+  usn?: string;
+  collegeYear?: string;
+  enrollmentNo?: string;
+  idCardUrl?: string;
   createdAt?: string;
 };

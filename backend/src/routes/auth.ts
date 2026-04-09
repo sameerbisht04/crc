@@ -86,6 +86,22 @@ router.get('/me', authMiddleware, async (req, res, next) => {
   }
 });
 
+// Debug endpoint - decode token without verification
+router.get('/debug-token', (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) {
+    return res.json({ error: 'No token provided' });
+  }
+  
+  try {
+    const decoded = jwt.decode(token, { complete: true });
+    res.json({ decoded, environment: { hasJwtSecret: !!process.env.JWT_SECRET, hasSupabaseSecret: !!process.env.SUPABASE_JWT_SECRET } });
+  } catch (err) {
+    res.json({ error: err instanceof Error ? err.message : 'Decode failed' });
+  }
+});
+
 export default router;
 
 

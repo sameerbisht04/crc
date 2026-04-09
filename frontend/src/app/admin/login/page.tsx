@@ -21,7 +21,7 @@ function getRoleFromSupabaseUser(user: any) {
   return "STUDENT";
 }
 
-export default function LoginPage() {
+export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,13 +42,11 @@ export default function LoginPage() {
         data: { session },
       } = await supabase.auth.getSession();
       const role = session?.user ? getRoleFromSupabaseUser(session.user) : "STUDENT";
-      if (role === "ADMIN") {
-        router.push("/admin/dashboard");
-      } else if (role === "PARTNER") {
-        router.push("/partner/dashboard");
-      } else {
-        router.push("/student/dashboard");
+      if (role !== "ADMIN") {
+        setError("This account is not an admin. Use the correct admin credentials.");
+        return;
       }
+      router.push("/admin/dashboard");
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
@@ -60,11 +58,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-        <h1 className="text-xl font-bold mb-1">Campus Delivery</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Sign in with your Supabase account (same email as Sign up).</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-          Need a role-specific login? Use <a href="/partner/login" className="text-slate-900 dark:text-slate-100 font-medium hover:underline">Partner sign in</a> or <a href="/admin/login" className="text-slate-900 dark:text-slate-100 font-medium hover:underline">Admin sign in</a>.
-        </p>
+        <h1 className="text-xl font-bold mb-1">Admin sign in</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Sign in with an admin Supabase account.</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Email</label>
@@ -96,16 +91,17 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-medium py-2 text-sm hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Signing in…" : "Admin sign in"}
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
-          No account?{" "}
-          <Link href="/register" className="text-slate-900 dark:text-slate-100 font-medium hover:underline">
-            Sign up
+          <Link href="/login" className="text-slate-900 dark:text-slate-100 font-medium hover:underline">
+            General sign in
           </Link>
           {" · "}
-          <Link href="/" className="font-medium hover:underline">Home</Link>
+          <Link href="/register" className="font-medium hover:underline">
+            Sign up
+          </Link>
         </p>
       </div>
     </div>

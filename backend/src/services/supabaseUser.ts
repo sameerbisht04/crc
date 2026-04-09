@@ -4,6 +4,9 @@ import { prisma } from '../prisma';
 type SupabaseJwtPayload = {
   sub: string;
   email?: string;
+  role?: string;
+  user_metadata?: { role?: string; name?: string };
+  app_metadata?: { role?: string };
 };
 
 function parseAdminEmails(): Set<string> {
@@ -16,28 +19,60 @@ function parseAdminEmails(): Set<string> {
   );
 }
 
-/**
- * Resolve Supabase Auth → Prisma User for API auth.
- * - Emails listed in ADMIN_EMAILS get role ADMIN (create / promote as needed).
- * - Existing DB admins always get ADMIN.
- * - Otherwise STUDENT (create row on first use).
- */
+function normalizeRole(value: unknown): 'ADMIN' | 'PARTNER' | 'STUDENT' | null {
+  if (typeof value !== 'string') return null;
+  const role = value.toUpperCase();
+  if (role === 'ADMIN' || role === 'PARTNER' || role === 'STUDENT') return role;
+  return null;
+}
+
+function getRoleFromPayload(payload: SupabaseJwtPayload): 'ADMIN' | 'PARTNER' | 'STUDENT' | null {
+  return (
+    normalizeRole(payload.role) ||
+    normalizeRole(payload.user_metadata?.role) ||
+    normalizeRole(payload.app_metadata?.role) ||
+    null
+  );
+}
+
 export async function resolveUserFromSupabase(
   payload: SupabaseJwtPayload
-): Promise<{ id: string; role: 'STUDENT' | 'ADMIN' }> {
+): Promise<{ id: string; role: 'STUDENT' | 'PARTNER' | 'ADMIN' }> {
   const email = payload.email?.toLowerCase().trim();
   if (!email) {
     throw new Error('Supabase token has no email claim');
   }
 
   const wantAdmin = parseAdminEmails().has(email);
+  const tokenRole = getRoleFromPayload(payload);
+
+  const existingPartner = await prisma.partner.findUnique({ where: { email } });
+  if (existingPartner) {
+    return { id: existingPartner.id, role: 'PARTNER' };
+  }
+
+  if (tokenRole === 'PARTNER') {
+    const name = payload.user_metadata?.name || email.split('@')[0] || 'Partner';
+    const passwordHash = await bcrypt.hash(`supabase:${payload.sub}`, 10);
+    const partner = await prisma.partner.create({
+      data: {
+        email,
+        name,
+        phone: '',
+        passwordHash,
+        approved: false,
+      },
+    });
+    return { id: partner.id, role: 'PARTNER' };
+  }
+
   let user = await prisma.user.findUnique({ where: { email } });
 
   if (user?.role === 'ADMIN') {
     return { id: user.id, role: 'ADMIN' };
   }
 
-  if (wantAdmin) {
+  if (wantAdmin || tokenRole === 'ADMIN') {
     if (!user) {
       const passwordHash = await bcrypt.hash(`supabase-admin:${payload.sub}`, 10);
       user = await prisma.user.create({
@@ -45,7 +80,7 @@ export async function resolveUserFromSupabase(
           email,
           studentId: `sb-adm-${payload.sub.replace(/-/g, '').slice(0, 10)}`,
           passwordHash,
-          name: email.split('@')[0] || 'Admin',
+          name: payload.user_metadata?.name || email.split('@')[0] || 'Admin',
           role: 'ADMIN',
         },
       });
@@ -54,17 +89,14 @@ export async function resolveUserFromSupabase(
         where: { id: user.id },
         data: { role: 'ADMIN' },
       });
-    } else {
-      throw new Error('This email is registered with a non-admin role');
+    } else if (user.role === 'PARTNER') {
+      throw new Error('This account is registered with a non-admin role');
     }
     return { id: user.id, role: 'ADMIN' };
   }
 
   if (user) {
-    if (user.role !== 'STUDENT') {
-      throw new Error('This account is not a student in the app database');
-    }
-    return { id: user.id, role: 'STUDENT' };
+    return { id: user.id, role: user.role };
   }
 
   const passwordHash = await bcrypt.hash(`supabase:${payload.sub}`, 10);
@@ -73,7 +105,7 @@ export async function resolveUserFromSupabase(
       email,
       studentId: `sb-${payload.sub.replace(/-/g, '').slice(0, 12)}`,
       passwordHash,
-      name: email.split('@')[0] || 'Student',
+      name: payload.user_metadata?.name || email.split('@')[0] || 'Student',
       role: 'STUDENT',
     },
   });

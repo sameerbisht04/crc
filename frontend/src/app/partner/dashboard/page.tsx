@@ -30,6 +30,8 @@ export default function PartnerDashboardPage() {
   const [error, setError] = useState("");
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [isApproved, setIsApproved] = useState<boolean | null>(null);
+  const [showRewardsComing, setShowRewardsComing] = useState(false);
 
   const fetchData = async () => {
     if (!user || user.role !== "PARTNER") return;
@@ -40,9 +42,17 @@ export default function PartnerDashboardPage() {
       ]);
       setAvailable(avail);
       setMyOrders(mine);
+      setIsApproved(true);
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load");
+      const errorMessage = err instanceof Error ? err.message : "Failed to load";
+      if (errorMessage.includes("Partner not approved yet")) {
+        setIsApproved(false);
+        setError("");
+      } else {
+        setError(errorMessage);
+        setIsApproved(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -108,10 +118,10 @@ export default function PartnerDashboardPage() {
               Apply as partner
             </Link>
             <Link
-              href="/login"
+              href="/partner/login"
               className="rounded-lg border border-slate-300 dark:border-slate-600 font-medium py-2 px-4 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
             >
-              Sign in
+              Partner sign in
             </Link>
           </div>
         </div>
@@ -123,6 +133,20 @@ export default function PartnerDashboardPage() {
     return (
       <DashboardLayout>
         <p className="text-slate-500">This page is for delivery partners. You are signed in as {user.role}.</p>
+      </DashboardLayout>
+    );
+  }
+
+  if (isApproved === false) {
+    return (
+      <DashboardLayout>
+        <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-6 text-center max-w-md mx-auto">
+          <h2 className="font-semibold mb-2">Approval Pending</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+            Your partner application is being reviewed by an admin. You'll be able to accept orders once approved.
+          </p>
+          <p className="text-xs text-slate-500">Check back later or contact support if you have questions.</p>
+        </div>
       </DashboardLayout>
     );
   }
@@ -148,6 +172,24 @@ export default function PartnerDashboardPage() {
             {error}
           </p>
         )}
+
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setShowRewardsComing(true)}
+            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-6 hover:shadow-md transition-shadow text-left"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-slate-900 dark:text-white">Rewards & Points</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Earn rewards on deliveries</p>
+              </div>
+              <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m6.364 1.636l-.707.707M21 12h-1m1.364 6.364l-.707-.707M12 21v1m-6.364-1.636l.707.707M3 12h1M3.636 5.636l.707.707" />
+              </svg>
+            </div>
+          </button>
+        </section>
 
         <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-6">
           <h2 className="text-lg font-semibold mb-4">Available orders</h2>
@@ -234,6 +276,25 @@ export default function PartnerDashboardPage() {
             </ul>
           )}
         </section>
+
+        {showRewardsComing && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 max-w-sm w-full text-center space-y-4">
+              <div className="text-4xl">🎁</div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Coming Soon!</h2>
+              <p className="text-slate-600 dark:text-slate-400">
+                The Rewards & Points program will be available soon. Start earning on every delivery!
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowRewardsComing(false)}
+                className="w-full rounded-lg bg-amber-600 text-white font-medium py-2.5 hover:opacity-90"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

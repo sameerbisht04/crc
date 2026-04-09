@@ -1,6 +1,8 @@
 "use client";
 
 import { api } from "@/lib/api";
+import { formatAuthError } from "@/lib/authErrors";
+import { supabase } from "@/supabaseClient";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -9,6 +11,10 @@ export default function PartnerApplyPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [usn, setUsn] = useState("");
+  const [collegeYear, setCollegeYear] = useState("");
+  const [enrollmentNo, setEnrollmentNo] = useState("");
+  const [idCardFile, setIdCardFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -18,9 +24,34 @@ export default function PartnerApplyPage() {
     setError("");
     setLoading(true);
     try {
+      // Convert file to base64 if provided
+      let idCardUrl = "";
+      if (idCardFile) {
+        const reader = new FileReader();
+        idCardUrl = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(idCardFile);
+        });
+      }
+
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            role: "PARTNER",
+            name,
+          },
+        },
+      });
+      if (signUpError) {
+        setError(formatAuthError(signUpError.message));
+        return;
+      }
       await api("/partners/apply", {
         method: "POST",
-        body: JSON.stringify({ email, name, phone, password }),
+        body: JSON.stringify({ email, name, phone, password, usn, collegeYear, enrollmentNo, idCardUrl }),
       });
       setSuccess(true);
     } catch (err) {
@@ -84,6 +115,48 @@ export default function PartnerApplyPage() {
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
               required
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">USN (University Serial Number)</label>
+            <input
+              type="text"
+              value={usn}
+              onChange={(e) => setUsn(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">College Year</label>
+            <select
+              value={collegeYear}
+              onChange={(e) => setCollegeYear(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+            >
+              <option value="">-- Select --</option>
+              <option value="1st Year">1st Year</option>
+              <option value="2nd Year">2nd Year</option>
+              <option value="3rd Year">3rd Year</option>
+              <option value="4th Year">4th Year</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Enrollment No</label>
+            <input
+              type="text"
+              value={enrollmentNo}
+              onChange={(e) => setEnrollmentNo(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">ID Card Photo</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setIdCardFile(e.target.files?.[0] || null)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+            />
+            {idCardFile && <p className="text-xs text-slate-500 mt-1">Selected: {idCardFile.name}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Password</label>

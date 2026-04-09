@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware, requireApprovedPartner, requireRole } from '../middleware/auth';
 import { prisma } from '../prisma';
 
 const router = Router();
@@ -51,7 +51,7 @@ router.get('/mine', authMiddleware, requireRole('STUDENT'), async (req, res, nex
   }
 });
 
-router.get('/available', authMiddleware, requireRole('PARTNER'), async (_req, res, next) => {
+router.get('/available', authMiddleware, requireRole('PARTNER'), requireApprovedPartner, async (_req, res, next) => {
   try {
     const orders = await prisma.order.findMany({
       where: { status: 'PENDING', partnerId: null },

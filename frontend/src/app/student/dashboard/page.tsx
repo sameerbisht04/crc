@@ -28,6 +28,7 @@ export default function StudentDashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showChatComing, setShowChatComing] = useState(false);
 
   const fetchOrders = async () => {
     try {
@@ -93,6 +94,24 @@ export default function StudentDashboardPage() {
           <OrderForm onOrderCreated={() => fetchOrders()} />
         </section>
 
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setShowChatComing(true)}
+            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-6 hover:shadow-md transition-shadow text-left"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-slate-900 dark:text-white">Live Chat</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Chat with your delivery partner</p>
+              </div>
+              <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+          </button>
+        </section>
+
         <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-6">
           <h2 className="text-lg font-semibold mb-4">Your orders</h2>
           {loading ? (
@@ -134,6 +153,25 @@ export default function StudentDashboardPage() {
             </ul>
           )}
         </section>
+
+        {showChatComing && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 max-w-sm w-full text-center space-y-4">
+              <div className="text-4xl">💬</div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Coming Soon!</h2>
+              <p className="text-slate-600 dark:text-slate-400">
+                Live Chat with your delivery partner will be available soon. Stay connected!
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowChatComing(false)}
+                className="w-full rounded-lg bg-emerald-600 text-white font-medium py-2.5 hover:opacity-90"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

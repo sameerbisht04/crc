@@ -1,12 +1,12 @@
 import bcrypt from 'bcrypt';
 import { Router } from 'express';
 import { z } from 'zod';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware, requireApprovedPartner, requireRole } from '../middleware/auth';
 import { prisma } from '../prisma';
 
 const router = Router();
 
-router.get('/me/orders', authMiddleware, requireRole('PARTNER'), async (req, res, next) => {
+router.get('/me/orders', authMiddleware, requireRole('PARTNER'), requireApprovedPartner, async (req, res, next) => {
   try {
     const orders = await prisma.order.findMany({
       where: { partnerId: req.user!.id },
@@ -25,18 +25,34 @@ router.post('/apply', async (req, res, next) => {
       email: z.string().email(),
       name: z.string().min(1),
       phone: z.string().min(1),
-      password: z.string().min(6)
+      password: z.string().min(6),
+      usn: z.string().optional().default(''),
+      collegeYear: z.string().optional().default(''),
+      enrollmentNo: z.string().optional().default(''),
+      idCardUrl: z.string().optional().default('')
     });
-    const { email, name, phone, password } = schema.parse(req.body);
+    const { email, name, phone, password, usn, collegeYear, enrollmentNo, idCardUrl } = schema.parse(req.body);
     const passwordHash = await bcrypt.hash(password, 10);
-    const partner = await prisma.partner.create({ data: { email, name, phone, passwordHash } });
-    res.json({ id: partner.id, email: partner.email, name: partner.name, approved: partner.approved });
+    const partner = await prisma.partner.create({
+      data: { email, name, phone, passwordHash, usn, collegeYear, enrollmentNo, idCardUrl }
+    });
+    res.json({
+      id: partner.id,
+      email: partner.email,
+      name: partner.name,
+      phone: partner.phone,
+      usn: partner.usn,
+      collegeYear: partner.collegeYear,
+      enrollmentNo: partner.enrollmentNo,
+      idCardUrl: partner.idCardUrl,
+      approved: partner.approved
+    });
   } catch (err) {
     next(err);
   }
 });
 
-router.post('/accept/:orderId', authMiddleware, requireRole('PARTNER'), async (req, res, next) => {
+router.post('/accept/:orderId', authMiddleware, requireRole('PARTNER'), requireApprovedPartner, async (req, res, next) => {
   try {
     const partnerId = req.user!.id;
     const order = await prisma.order.findUnique({ where: { id: req.params.orderId } });

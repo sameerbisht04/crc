@@ -22,15 +22,19 @@ model User {
 }
 
 model Partner {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  phone        String
-  passwordHash String
-  approved     Boolean  @default(false)
-  earnings     Int      @default(0)
-  orders       Order[]
-  createdAt    DateTime @default(now())
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  phone          String
+  passwordHash   String
+  approved       Boolean  @default(false)
+  earnings       Int      @default(0)
+  usn            String   @default("")
+  collegeYear    String   @default("")
+  enrollmentNo   String   @default("")
+  idCardUrl      String   @default("")
+  orders         Order[]
+  createdAt      DateTime @default(now())
 }
 
 model Order {
