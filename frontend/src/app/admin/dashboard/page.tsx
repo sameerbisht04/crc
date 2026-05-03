@@ -2,7 +2,7 @@
 
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, Order, Partner } from "@/lib/api";
+import { api, Order, OrderTracking, Partner } from "@/lib/api";
 import { useEffect, useState } from "react";
 
 type Stats = { ordersToday: number; totalEarnings: number };
@@ -23,6 +23,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [tracking, setTracking] = useState<Record<string, OrderTracking>>({});
 
   const fetchData = async () => {
     if (!user || user.role !== "ADMIN") return;
@@ -50,6 +51,37 @@ export default function AdminDashboardPage() {
     const t = setInterval(fetchData, 10000);
     return () => clearInterval(t);
   }, [user?.id, user?.role]);
+
+  useEffect(() => {
+    if (!user || user.role !== "ADMIN" || orders.length === 0) return;
+    const activeParcelIds = orders
+      .filter((order) => order.type === "PARCEL" && (order.status === "PICKED_UP" || order.status === "ON_THE_WAY"))
+      .map((order) => order.id);
+    if (activeParcelIds.length === 0) return;
+
+    let active = true;
+    const sync = async () => {
+      try {
+        const rows = await Promise.all(
+          activeParcelIds.map((id) => api<OrderTracking>(`/orders/${id}/tracking`))
+        );
+        if (!active) return;
+        const next: Record<string, OrderTracking> = {};
+        rows.forEach((row) => {
+          next[row.orderId] = row;
+        });
+        setTracking(next);
+      } catch {
+        // ignore transient errors
+      }
+    };
+    void sync();
+    const timer = setInterval(sync, 7000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [user?.id, user?.role, orders]);
 
   async function handleApprove(partnerId: string) {
     setApprovingId(partnerId);
@@ -208,6 +240,19 @@ export default function AdminDashboardPage() {
                         </span>
                         {" · "}
                         <span className="text-slate-500">{STATUS_LABELS[order.status] ?? order.status}</span>
+                        {order.type === "PARCEL" && tracking[order.id]?.tracking && (
+                          <>
+                            {" · "}
+                            <a
+                              href={`https://www.openstreetmap.org/?mlat=${tracking[order.id]!.tracking!.latitude}&mlon=${tracking[order.id]!.tracking!.longitude}#map=16/${tracking[order.id]!.tracking!.latitude}/${tracking[order.id]!.tracking!.longitude}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sky-600 dark:text-sky-400 hover:underline"
+                            >
+                              Live track ({tracking[order.id]!.history.length})
+                            </a>
+                          </>
+                        )}
                       </div>
                       <span className="text-slate-500 shrink-0">₹{order.amount ?? 0}</span>
                     </li>

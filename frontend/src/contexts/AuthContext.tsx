@@ -60,11 +60,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const refreshUser = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      setUser(mapSupabaseUser(session.user));
-      setLoading(false);
-      return;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(mapSupabaseUser(session.user));
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Stale/invalid Supabase refresh token can throw during app boot.
+      await supabase.auth.signOut();
     }
 
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;

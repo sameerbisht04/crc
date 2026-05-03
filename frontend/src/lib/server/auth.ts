@@ -23,19 +23,17 @@ export async function requireAuth(request: Request): Promise<AuthUser> {
     // fall through to Supabase token handling
   }
 
-  if (!SUPABASE_JWT_SECRET) {
-    throw new ApiError(401, "Invalid or expired token");
-  }
-
   const decoded = jwt.decode(token) as { sub?: string; email?: string } | null;
   if (!decoded || !decoded.sub) {
     throw new ApiError(401, "Invalid or expired token");
   }
 
-  try {
-    jwt.verify(token, SUPABASE_JWT_SECRET);
-  } catch {
-    // ignore verification failure; we can still resolve based on the decoded payload.
+  if (SUPABASE_JWT_SECRET) {
+    try {
+      jwt.verify(token, SUPABASE_JWT_SECRET);
+    } catch {
+      // ignore verification failure; we can still resolve based on the decoded payload.
+    }
   }
 
   const appUser = await resolveUserFromSupabase({

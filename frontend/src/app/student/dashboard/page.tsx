@@ -3,7 +3,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import OrderForm from "@/components/OrderForm";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, Order } from "@/lib/api";
+import { api, Order, OrderTracking } from "@/lib/api";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -29,6 +29,7 @@ export default function StudentDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showChatComing, setShowChatComing] = useState(false);
+  const [tracking, setTracking] = useState<Record<string, OrderTracking>>({});
 
   const fetchOrders = async () => {
     try {
@@ -49,6 +50,37 @@ export default function StudentDashboardPage() {
     const t = setInterval(fetchOrders, 8000);
     return () => clearInterval(t);
   }, [user?.id, user?.role]);
+
+  useEffect(() => {
+    if (!user || user.role !== "STUDENT") return;
+    const activeParcelIds = orders
+      .filter((order) => order.type === "PARCEL" && (order.status === "PICKED_UP" || order.status === "ON_THE_WAY"))
+      .map((order) => order.id);
+    if (activeParcelIds.length === 0) return;
+
+    let active = true;
+    const sync = async () => {
+      try {
+        const rows = await Promise.all(
+          activeParcelIds.map((id) => api<OrderTracking>(`/orders/${id}/tracking`))
+        );
+        if (!active) return;
+        const next: Record<string, OrderTracking> = {};
+        rows.forEach((row) => {
+          next[row.orderId] = row;
+        });
+        setTracking(next);
+      } catch {
+        // Tracking is optional; don't block dashboard for intermittent location failures.
+      }
+    };
+    void sync();
+    const timer = setInterval(sync, 7000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [user?.id, user?.role, orders]);
 
   if (authLoading) {
     return (
@@ -147,6 +179,33 @@ export default function StudentDashboardPage() {
                     <span className="w-full text-xs text-slate-500 dark:text-slate-400">
                       Partner: {order.partner.name}
                     </span>
+                  )}
+                  {order.type === "PARCEL" && tracking[order.id]?.tracking && (
+                    <div className="w-full text-xs text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-900/20 rounded-md p-2">
+                      Live tracking:{" "}
+                      <a
+                        href={`https://www.openstreetmap.org/?mlat=${tracking[order.id]!.tracking!.latitude}&mlon=${tracking[order.id]!.tracking!.longitude}#map=16/${tracking[order.id]!.tracking!.latitude}/${tracking[order.id]!.tracking!.longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium underline"
+                      >
+                        Open live location
+                      </a>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        {" "}· updated{" "}
+                        {new Date(tracking[order.id]!.tracking!.updatedAt).toLocaleTimeString()}
+                      </span>
+                      {tracking[order.id]!.history.length > 0 && (
+                        <ul className="mt-1 text-[11px] text-slate-600 dark:text-slate-400">
+                          {tracking[order.id]!.history.slice(0, 3).map((point, idx) => (
+                            <li key={`${order.id}-${idx}`}>
+                              Checkpoint {tracking[order.id]!.history.length - idx}:{" "}
+                              {new Date(point.updatedAt).toLocaleTimeString()}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   )}
                 </li>
               ))}

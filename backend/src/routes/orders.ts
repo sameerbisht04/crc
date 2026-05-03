@@ -4,6 +4,41 @@ import { authMiddleware, requireApprovedPartner, requireRole } from '../middlewa
 import { prisma } from '../prisma';
 
 const router = Router();
+const locationSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180)
+});
+
+type LiveTrackingPoint = {
+  latitude: number;
+  longitude: number;
+  updatedAt: string;
+  partnerId: string;
+};
+
+let trackingTableReady = false;
+
+async function ensureTrackingTable() {
+  if (trackingTableReady) return;
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "OrderTrackingPoint" (
+      "id" TEXT PRIMARY KEY,
+      "orderId" TEXT NOT NULL,
+      "partnerId" TEXT NOT NULL,
+      "latitude" DOUBLE PRECISION NOT NULL,
+      "longitude" DOUBLE PRECISION NOT NULL,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT "OrderTrackingPoint_orderId_fkey"
+        FOREIGN KEY ("orderId") REFERENCES "Order"("id")
+        ON DELETE CASCADE ON UPDATE CASCADE
+    );
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "OrderTrackingPoint_orderId_createdAt_idx"
+    ON "OrderTrackingPoint" ("orderId", "createdAt");
+  `);
+  trackingTableReady = true;
+}
 
 const createOrderSchema = z.object({
   type: z.enum(['FOOD', 'GROCERIES', 'PARCEL']),
@@ -75,6 +110,74 @@ router.get('/:orderId', authMiddleware, async (req, res, next) => {
     const allowed = u.role === 'ADMIN' || order.studentId === u.id || order.partnerId === u.id;
     if (!allowed) return res.status(403).json({ error: 'Forbidden' });
     res.json(order);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:orderId/tracking', authMiddleware, async (req, res, next) => {
+  try {
+    await ensureTrackingTable();
+    const order = await prisma.order.findUnique({ where: { id: req.params.orderId } });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    const u = req.user!;
+    const allowed = u.role === 'ADMIN' || order.studentId === u.id || order.partnerId === u.id;
+    if (!allowed) return res.status(403).json({ error: 'Forbidden' });
+
+    const historyRows = await prisma.$queryRaw<
+      Array<{ latitude: number; longitude: number; createdAt: Date; partnerId: string }>
+    >`
+      SELECT "latitude", "longitude", "createdAt", "partnerId"
+      FROM "OrderTrackingPoint"
+      WHERE "orderId" = ${order.id}
+      ORDER BY "createdAt" DESC
+      LIMIT 20
+    `;
+    const history = historyRows.map((row) => ({
+      latitude: row.latitude,
+      longitude: row.longitude,
+      updatedAt: row.createdAt.toISOString(),
+      partnerId: row.partnerId
+    }));
+    res.json({
+      orderId: order.id,
+      status: order.status,
+      tracking: history[0] ?? null,
+      history
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/:orderId/tracking-location', authMiddleware, async (req, res, next) => {
+  try {
+    await ensureTrackingTable();
+    const order = await prisma.order.findUnique({ where: { id: req.params.orderId } });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    const u = req.user!;
+    const canUpdate = u.role === 'ADMIN' || (u.role === 'PARTNER' && order.partnerId === u.id);
+    if (!canUpdate) return res.status(403).json({ error: 'Forbidden' });
+
+    if (order.status !== 'PICKED_UP' && order.status !== 'ON_THE_WAY') {
+      return res.status(400).json({ error: 'Live tracking is available only for active deliveries' });
+    }
+
+    const { latitude, longitude } = locationSchema.parse(req.body);
+    const point: LiveTrackingPoint = {
+      latitude,
+      longitude,
+      updatedAt: new Date().toISOString(),
+      partnerId: order.partnerId ?? u.id
+    };
+    await prisma.$executeRaw`
+      INSERT INTO "OrderTrackingPoint" ("id", "orderId", "partnerId", "latitude", "longitude", "createdAt")
+      VALUES (${`${order.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}, ${order.id}, ${point.partnerId}, ${point.latitude}, ${point.longitude}, NOW())
+    `;
+    const io = req.app.get('io');
+    io.to(`order:${order.id}`).emit('order:tracking', { orderId: order.id, tracking: point });
+    res.json({ orderId: order.id, tracking: point });
   } catch (err) {
     next(err);
   }

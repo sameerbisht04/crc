@@ -2,7 +2,7 @@
 
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, Order } from "@/lib/api";
+import { api, Order, OrderTracking } from "@/lib/api";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -32,6 +32,8 @@ export default function PartnerDashboardPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [isApproved, setIsApproved] = useState<boolean | null>(null);
   const [showRewardsComing, setShowRewardsComing] = useState(false);
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  const [trackingMessage, setTrackingMessage] = useState("");
 
   const fetchData = async () => {
     if (!user || user.role !== "PARTNER") return;
@@ -93,6 +95,42 @@ export default function PartnerDashboardPage() {
       setUpdatingId(null);
     }
   }
+
+  async function pushLiveLocation(orderId: string) {
+    if (!navigator.geolocation) {
+      setTrackingMessage("Location not supported by this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await api<OrderTracking>(`/orders/${orderId}/tracking-location`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            }),
+          });
+          setTrackingMessage("Live location updated.");
+        } catch (err) {
+          setTrackingMessage(err instanceof Error ? err.message : "Failed to update live location");
+        }
+      },
+      () => {
+        setTrackingMessage("Unable to access your current location.");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+    );
+  }
+
+  useEffect(() => {
+    if (!trackingOrderId) return;
+    void pushLiveLocation(trackingOrderId);
+    const timer = setInterval(() => {
+      void pushLiveLocation(trackingOrderId);
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [trackingOrderId]);
 
   if (authLoading) {
     return (
@@ -170,6 +208,11 @@ export default function PartnerDashboardPage() {
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400 rounded-lg bg-red-50 dark:bg-red-900/20 p-2">
             {error}
+          </p>
+        )}
+        {trackingMessage && (
+          <p className="text-sm text-sky-700 dark:text-sky-300 rounded-lg bg-sky-50 dark:bg-sky-900/20 p-2">
+            {trackingMessage}
           </p>
         )}
 
@@ -251,6 +294,21 @@ export default function PartnerDashboardPage() {
                   <p className="text-slate-600 dark:text-slate-400 text-xs mb-2">
                     {order.pickupLocation} → {order.dropLocation}
                   </p>
+                  {order.type === "PARCEL" && (order.status === "PICKED_UP" || order.status === "ON_THE_WAY") && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTrackingOrderId((prev) => (prev === order.id ? null : order.id))
+                      }
+                      className={`rounded-lg text-white text-xs font-medium py-1.5 px-2.5 mr-2 mb-2 ${
+                        trackingOrderId === order.id
+                          ? "bg-slate-600 hover:opacity-90"
+                          : "bg-purple-600 hover:opacity-90"
+                      }`}
+                    >
+                      {trackingOrderId === order.id ? "Stop live tracking" : "Start live tracking"}
+                    </button>
+                  )}
                   {order.status === "PICKED_UP" && (
                     <button
                       type="button"

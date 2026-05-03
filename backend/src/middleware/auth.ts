@@ -33,12 +33,6 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     // try Supabase access token
   }
 
-  if (!SUPABASE_JWT_SECRET) {
-    console.error('No SUPABASE_JWT_SECRET configured');
-    res.status(401).json({ error: 'Invalid or expired token' });
-    return;
-  }
-
   try {
     // Decode Supabase token (without verification first)
     const decoded = jwt.decode(token, { complete: false }) as {
@@ -51,11 +45,15 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       return;
     }
 
-    // Try to verify with Supabase secret
-    try {
-      jwt.verify(token, SUPABASE_JWT_SECRET);
-    } catch (verifyErr) {
-      console.warn('Supabase token verification failed, attempting decode-only approach');
+    // Verify when configured; otherwise allow decode-based mapping for local/dev usage.
+    if (SUPABASE_JWT_SECRET) {
+      try {
+        jwt.verify(token, SUPABASE_JWT_SECRET);
+      } catch (_verifyErr) {
+        console.warn('Supabase token verification failed, attempting decode-only approach');
+      }
+    } else {
+      console.warn('SUPABASE_JWT_SECRET not set; using decode-only Supabase token handling');
     }
 
     // Look up user by email from decoded token

@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ||
+  (process.env.NODE_ENV === "development" ? "http://localhost:4000/api" : "/api");
 
 let authToken: string | null = null;
 
@@ -19,10 +21,14 @@ async function getApiToken(): Promise<string | null> {
     const backend = localStorage.getItem("token");
     if (backend) return backend;
     const { supabase } = await import("@/supabaseClient");
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    return session?.access_token ?? null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      return session?.access_token ?? null;
+    } catch {
+      return null;
+    }
   }
   return authToken;
 }
@@ -66,6 +72,23 @@ export type Order = {
   createdAt: string;
   student?: { name: string; email: string };
   partner?: { name: string; phone?: string };
+};
+
+export type OrderTracking = {
+  orderId: string;
+  status: Order["status"];
+  tracking: {
+    latitude: number;
+    longitude: number;
+    updatedAt: string;
+    partnerId: string;
+  } | null;
+  history: Array<{
+    latitude: number;
+    longitude: number;
+    updatedAt: string;
+    partnerId: string;
+  }>;
 };
 
 export type Partner = {
