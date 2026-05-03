@@ -181,7 +181,7 @@ export default function PartnerDashboardPage() {
         <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-6 text-center max-w-md mx-auto">
           <h2 className="font-semibold mb-2">Approval Pending</h2>
           <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-            Your partner application is being reviewed by an admin. You'll be able to accept orders once approved.
+            Your partner application is being reviewed by an admin. You will be able to accept orders once approved.
           </p>
           <p className="text-xs text-slate-500">Check back later or contact support if you have questions.</p>
         </div>

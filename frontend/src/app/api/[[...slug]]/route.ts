@@ -48,6 +48,8 @@ function createToken(payload: { sub: string; role: string }) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }
 
+type ApiRouteParams = Promise<{ slug?: string[] }>;
+
 function routeSegments(params: { slug?: string[] }) {
   return params.slug ?? [];
 }
@@ -280,8 +282,8 @@ async function handleAdminApprovePartner(request: Request, partnerId: string) {
   return NextResponse.json(partner);
 }
 
-export async function GET(request: Request, { params }: { params: { slug?: string[] } }) {
-  const segments = routeSegments(params);
+export async function GET(request: Request, context: { params: ApiRouteParams }) {
+  const segments = routeSegments(await context.params);
   try {
     if (isMatch(segments, ["auth", "me"])) return await handleAuthMe(request);
     if (isMatch(segments, ["auth", "debug-token"])) return await handleAuthDebugToken(request);
@@ -298,8 +300,8 @@ export async function GET(request: Request, { params }: { params: { slug?: strin
   }
 }
 
-export async function POST(request: Request, { params }: { params: { slug?: string[] } }) {
-  const segments = routeSegments(params);
+export async function POST(request: Request, context: { params: ApiRouteParams }) {
+  const segments = routeSegments(await context.params);
   try {
     if (isMatch(segments, ["auth", "register"])) return await handleAuthRegister(request);
     if (isMatch(segments, ["auth", "login"])) return await handleAuthLogin(request);
@@ -315,8 +317,8 @@ export async function POST(request: Request, { params }: { params: { slug?: stri
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: { slug?: string[] } }) {
-  const segments = routeSegments(params);
+export async function PATCH(request: Request, context: { params: ApiRouteParams }) {
+  const segments = routeSegments(await context.params);
   try {
     if (segments.length === 4 && segments[0] === "orders" && segments[2] === "status") return await handleOrderStatusUpdate(request, segments[1]);
     throw new ApiError(404, "Not found");

@@ -5,8 +5,9 @@ import { supabase } from "@/supabaseClient";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
-function getRoleFromSupabaseUser(user: any) {
+function getRoleFromSupabaseUser(user: SupabaseUser) {
   const role =
     (typeof user.user_metadata?.role === "string" && user.user_metadata.role.toUpperCase()) ||
     (typeof user.app_metadata?.role === "string" && user.app_metadata.role.toUpperCase()) ||

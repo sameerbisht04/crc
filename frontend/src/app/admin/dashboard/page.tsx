@@ -186,35 +186,36 @@ export default function AdminDashboardPage() {
                         </button>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-900/30 p-3 rounded-lg text-xs">
-                        {(p as any).usn && (
+                        {p.usn ? (
                           <div>
                             <p className="text-slate-500 dark:text-slate-400">USN</p>
-                            <p className="font-medium">{(p as any).usn}</p>
+                            <p className="font-medium">{p.usn}</p>
                           </div>
-                        )}
-                        {(p as any).collegeYear && (
+                        ) : null}
+                        {p.collegeYear ? (
                           <div>
                             <p className="text-slate-500 dark:text-slate-400">College Year</p>
-                            <p className="font-medium">{(p as any).collegeYear}</p>
+                            <p className="font-medium">{p.collegeYear}</p>
                           </div>
-                        )}
-                        {(p as any).enrollmentNo && (
+                        ) : null}
+                        {p.enrollmentNo ? (
                           <div>
                             <p className="text-slate-500 dark:text-slate-400">Enrollment No</p>
-                            <p className="font-medium">{(p as any).enrollmentNo}</p>
+                            <p className="font-medium">{p.enrollmentNo}</p>
                           </div>
-                        )}
+                        ) : null}
                       </div>
-                      {(p as any).idCardUrl && (
+                      {p.idCardUrl ? (
                         <div>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">ID Card</p>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- partner-uploaded URL, not Next Image domain */}
                           <img
-                            src={(p as any).idCardUrl}
+                            src={p.idCardUrl}
                             alt="ID Card"
                             className="max-w-xs max-h-48 rounded-lg border border-slate-200 dark:border-slate-600"
                           />
                         </div>
-                      )}
+                      ) : null}
                     </li>
                   ))}
                 </ul>
